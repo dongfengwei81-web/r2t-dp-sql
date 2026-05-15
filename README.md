@@ -202,4 +202,4 @@ This project is for academic purposes as part of course requirements.
 
 ## Contact
 
-GitHub: https://github.com/fdongab/r2t-dp-sql
+GitHub: [https://github.com/fdongab/r2t-dp-sql](https://github.com/dongfengwei81-web/r2t-dp-sql)
