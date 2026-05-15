@@ -20,7 +20,7 @@ import sys
 # ==================== Configuration ====================
 DB_NAME = "tpch"
 DB_USER = "postgres"
-DB_PASSWORD = "174110"  # Change this to your password
+DB_PASSWORD = "your password" 
 DB_HOST = "localhost"
 DB_PORT = "5432"
 
