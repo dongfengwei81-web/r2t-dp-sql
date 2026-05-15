@@ -7,7 +7,7 @@ import time
 def get_db_connection():
     conn = psycopg2.connect(
         user="postgres",
-        password="174110",
+        password="your password",
         host="localhost",
         port="5432",
         database="tpch"
