@@ -1,7 +1,5 @@
 """
 R2T: Core Algorithm Implementation (Full TPC-H, 8 tables)
-Author: Dong Fengwei
-Date: 2026-05-16
 
 This script implements the R2T (Race-to-the-Top) mechanism for
 differentially private COUNT and SUM queries using TPC-H data.
