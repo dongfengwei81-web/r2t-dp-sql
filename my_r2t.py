@@ -1,5 +1,7 @@
 """
 R2T: Core Algorithm Implementation (Full TPC-H, 8 tables)
+Author: Dong Fengwei
+Date: 2026-05-16
 
 This script implements the R2T (Race-to-the-Top) mechanism for
 differentially private COUNT and SUM queries using TPC-H data.
@@ -26,9 +28,10 @@ import os
 # Configuration
 # ============================================================
 
-DATA_DIR = "data_path"  
+DATA_DIR = "F:/IP/IP-21273301/Data/_0.125"  # Please modify to your data path
 
 # TPC-H CSV file column indices (pipe-delimited, no header)
+# Reference: https://github.com/electrum/tpch-dbgen
 COL_ORDER = {
     'orders': {
         'o_orderkey': 0,
@@ -180,35 +183,34 @@ def load_q18_data():
 
     return data
 
-
 def load_q20_data():
     """
-    Q20: Number of lineitems per supplier
-    Table join: supplier -> partsupp -> lineitem
-    Returns: [s_suppkey, ...] one lineitem per supplier
+    Q20: Number of lineitems per supplier (不去重)
+    返回: [s_suppkey, ...] 每个 lineitem 一条记录
     """
     # Load partsupp: partkey -> suppkey
     partsupp = load_csv('partsupp.csv')
-    part_to_supp = {row[COL_ORDER['partsupp']['ps_partkey']]: row[COL_ORDER['partsupp']['ps_suppkey']]
-                    for row in partsupp}
+    part_to_supp = {}
+    for row in partsupp:
+        partkey = row[COL_ORDER['partsupp']['ps_partkey']]
+        suppkey = row[COL_ORDER['partsupp']['ps_suppkey']]
+        part_to_supp[partkey] = suppkey
 
     # Load supplier
     suppliers = load_csv('supplier.csv')
     valid_suppkeys = {row[COL_ORDER['supplier']['s_suppkey']] for row in suppliers}
 
-    # Load lineitem
-    lineitem = load_csv('lineitem.csv')
     data = []
+
+    lineitem = load_csv('lineitem.csv')
     for row in lineitem:
         partkey = row[COL_ORDER['lineitem']['l_partkey']]
         if partkey in part_to_supp:
             suppkey = part_to_supp[partkey]
             if suppkey in valid_suppkeys:
-                data.append(suppkey)
+                data.append(suppkey)  # 每个 lineitem 都添加
 
     return data
-
-
 # ============================================================
 # Data Integrity Verification
 # ============================================================
