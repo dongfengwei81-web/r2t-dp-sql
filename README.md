@@ -157,7 +157,7 @@ Optimal parameters found on TPC-H SF=0.125 (~125MB):
 |-------|------|--------|-------------|---------------|
 | Q12   | COUNT | orders, lineitem | 8 | 0.04% |
 | Q3    | COUNT | customer, orders, lineitem | 64 | 0.31% |
-| Q20   | COUNT | supplier, partsupp, lineitem | 128 | 1.87% |
+| Q20   | COUNT | supplier, partsupp, lineitem | 128 | 0.80% |
 | Q18   | SUM   | customer, orders, lineitem | 1024 | 0.44% |
 
 ## Key Implementation Details
