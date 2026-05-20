@@ -1,3 +1,9 @@
+import os
+import tempfile
+os.environ['TMPDIR'] = 'F:/pulp_temp'
+tempfile.tempdir = 'F:/pulp_temp'
+os.makedirs('F:/pulp_temp', exist_ok=True)
+
 import numpy as np
 import pulp
 import csv
@@ -75,7 +81,7 @@ def solve_lp(rows, tau):
         prob += pulp.lpSum(vars[idx:idx + cnt]) <= tau
         idx += cnt
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(pulp.PULP_CBC_CMD(msg=False, keepFiles=0))
     return pulp.value(prob.objective) or 0.0
 
 
@@ -92,7 +98,7 @@ def r2t_once(rows, epsilon, beta, GSQ):
         tau = 2 ** j
         truncated = solve_lp(rows, tau)
         noise = np.random.laplace(0, log_gsq * tau / epsilon)
-        penalty = np.log(log_gsq / beta) * (tau / epsilon)
+        penalty = log_gsq * np.log(log_gsq / beta) * (tau / epsilon)
         noisy = truncated + noise - penalty
         best = max(best, noisy)
 
@@ -101,7 +107,7 @@ def r2t_once(rows, epsilon, beta, GSQ):
 
 def main():
     epsilon, beta = 0.8, 0.1
-    gsq_list = [2, 4, 8, 16, 32, 64, 128, 256]
+    gsq_list = [64, 128, 256, 512, 1024, 2048]
 
     # 加载数据
     data = load_q20_data()
