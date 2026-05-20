@@ -18,12 +18,15 @@ Data source: TPC-H scale factor 0.125 (8 CSV files)
 - nation.csv, region.csv
 """
 
+import os
+import tempfile
+os.environ['TMPDIR'] = 'F:/pulp_temp'
+tempfile.tempdir = 'F:/pulp_temp'
+os.makedirs('F:/pulp_temp', exist_ok=True)
 import numpy as np
 import pulp
 import csv
 from collections import Counter, defaultdict
-import os
-
 # ============================================================
 # Configuration
 # ============================================================
@@ -112,24 +115,17 @@ def load_q3_data():
     Table join: customer -> orders -> lineitem
     Returns: [c_custkey, ...] one record per lineitem
     """
-    # Load orders: keep only customers with orders
     orders = load_csv('orders.csv')
     order_to_cust = {row[COL_ORDER['orders']['o_orderkey']]: row[COL_ORDER['orders']['o_custkey']]
                      for row in orders}
 
-    # Load customer (verify customer exists, not strictly needed since orders already have custkey)
-    customers = load_csv('customer.csv')
-    valid_custkeys = {row[COL_ORDER['customer']['c_custkey']] for row in customers}
-
-    # Load lineitem, each lineitem corresponds to one customer
     lineitem = load_csv('lineitem.csv')
     data = []
     for row in lineitem:
         orderkey = row[COL_ORDER['lineitem']['l_orderkey']]
         if orderkey in order_to_cust:
             custkey = order_to_cust[orderkey]
-            if custkey in valid_custkeys:
-                data.append(custkey)
+            data.append(custkey)
 
     return data
 
@@ -140,11 +136,9 @@ def load_q12_data():
     Table join: orders -> lineitem
     Returns: [o_orderkey, ...] one record per lineitem
     """
-    # Load orders
     orders = load_csv('orders.csv')
     valid_orderkeys = {row[COL_ORDER['orders']['o_orderkey']] for row in orders}
 
-    # Load lineitem
     lineitem = load_csv('lineitem.csv')
     data = []
     for row in lineitem:
@@ -161,56 +155,53 @@ def load_q18_data():
     Table join: customer -> orders -> lineitem
     Returns: [(c_custkey, l_quantity), ...] each lineitem with weight
     """
-    # Load orders
     orders = load_csv('orders.csv')
     order_to_cust = {row[COL_ORDER['orders']['o_orderkey']]: row[COL_ORDER['orders']['o_custkey']]
                      for row in orders}
 
-    # Load customer
-    customers = load_csv('customer.csv')
-    valid_custkeys = {row[COL_ORDER['customer']['c_custkey']] for row in customers}
-
-    # Load lineitem
     lineitem = load_csv('lineitem.csv')
     data = []
     for row in lineitem:
         orderkey = row[COL_ORDER['lineitem']['l_orderkey']]
         if orderkey in order_to_cust:
             custkey = order_to_cust[orderkey]
-            if custkey in valid_custkeys:
-                quantity = float(row[COL_ORDER['lineitem']['l_quantity']])
-                data.append((custkey, quantity))
+            quantity = float(row[COL_ORDER['lineitem']['l_quantity']])
+            data.append((custkey, quantity))
 
     return data
+
 
 def load_q20_data():
     """
-    Q20: Number of lineitems per supplier (不去重)
-    返回: [s_suppkey, ...] 每个 lineitem 一条记录
+    Q20: Number of lineitems per supplier
+    Table join: supplier -> partsupp -> lineitem
+    匹配条件: (l_partkey, l_suppkey) = (ps_partkey, ps_suppkey)
+    Returns: [s_suppkey, ...] one record per matched lineitem
     """
-    # Load partsupp: partkey -> suppkey
+    # Load partsupp: 构建 (partkey, suppkey) 集合
     partsupp = load_csv('partsupp.csv')
-    part_to_supp = {}
+    part_supp_pairs = set()
     for row in partsupp:
         partkey = row[COL_ORDER['partsupp']['ps_partkey']]
         suppkey = row[COL_ORDER['partsupp']['ps_suppkey']]
-        part_to_supp[partkey] = suppkey
+        part_supp_pairs.add((partkey, suppkey))
 
-    # Load supplier
+    # Load supplier: 构建有效 suppkey 集合
     suppliers = load_csv('supplier.csv')
     valid_suppkeys = {row[COL_ORDER['supplier']['s_suppkey']] for row in suppliers}
 
+    # Load lineitem, 匹配 (l_partkey, l_suppkey) 到 (ps_partkey, ps_suppkey)
     data = []
-
     lineitem = load_csv('lineitem.csv')
     for row in lineitem:
         partkey = row[COL_ORDER['lineitem']['l_partkey']]
-        if partkey in part_to_supp:
-            suppkey = part_to_supp[partkey]
-            if suppkey in valid_suppkeys:
-                data.append(suppkey)  # 每个 lineitem 都添加
+        suppkey = row[COL_ORDER['lineitem']['l_suppkey']]
+        if (partkey, suppkey) in part_supp_pairs and suppkey in valid_suppkeys:
+            data.append(suppkey)
 
     return data
+
+
 # ============================================================
 # Data Integrity Verification
 # ============================================================
@@ -228,7 +219,6 @@ def verify_data():
     for f in files:
         file_path = os.path.join(DATA_DIR, f)
         if os.path.exists(file_path):
-            # Count rows
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as fp:
                 line_count = sum(1 for _ in fp)
             print(f"[OK] {f}: {line_count:,} rows")
@@ -257,9 +247,8 @@ def build_lp_count(rows, tau):
         prob += pulp.lpSum(vars[idx:idx+cnt]) <= tau
         idx += cnt
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(pulp.PULP_CBC_CMD(msg=False, keepFiles=0))
     return pulp.value(prob.objective) or 0.0
-
 
 def build_lp_sum(rows, tau):
     """LP for SUM: maximize total weight kept, each user's weight <= tau"""
@@ -277,7 +266,8 @@ def build_lp_sum(rows, tau):
     for items in user_weights.values():
         prob += pulp.lpSum(vars[i] for i, _ in items) <= tau
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    # prob.solve(pulp.PULP_CBC_CMD(msg=False, keepFiles=0, tmpDir='F:/pulp_temp'))
+    prob.solve(pulp.PULP_CBC_CMD(msg=False, keepFiles=0))
     return pulp.value(prob.objective) or 0.0
 
 
@@ -299,7 +289,8 @@ def r2t_count(data, epsilon, beta, GSQ, query_name=""):
         tau = 2 ** j
         truncated = build_lp_count(data, tau)
         noise = np.random.laplace(0, log_gsq * tau / epsilon)
-        penalty = np.log(log_gsq / beta) * (tau / epsilon)
+        # 修正：惩罚项加上 log_gsq 因子，与论文公式 (7) 一致
+        penalty = log_gsq * np.log(log_gsq / beta) * (tau / epsilon)
         noisy = truncated + noise - penalty
         best = max(best, noisy)
 
@@ -322,7 +313,8 @@ def r2t_sum(data, epsilon, beta, GSQ, query_name=""):
         tau = 2 ** j
         truncated = build_lp_sum(data, tau)
         noise = np.random.laplace(0, log_gsq * tau / epsilon)
-        penalty = np.log(log_gsq / beta) * (tau / epsilon)
+        # 修正：惩罚项加上 log_gsq 因子，与论文公式 (7) 一致
+        penalty = log_gsq * np.log(log_gsq / beta) * (tau / epsilon)
         noisy = truncated + noise - penalty
         best = max(best, noisy)
 
